@@ -10,8 +10,13 @@ inventory sources doesn't appear to be defined.
 
 will create and inventories/ directory containing inventory subdirs used as fixtures.
 
+Wading through the example_results currently shows inconsistencies between:
 
-This is part of an attempt to define
+* ansible (ADHOC) and ansible-playbook
+* top-level job variables and hostvars[hostname]
+* variables defined in dynamic inventories vs static (e.g. variables from dynamic inventories 
+  can make it into hostvars[hostname] via magic variables).
+
 TODO
 
 * implement the driver in ansible itself (although it is awkward to get stdoutput and variables
