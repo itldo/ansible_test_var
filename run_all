@@ -51,6 +51,8 @@ check_var()
       pb_test_var.yml -e varname=$varname -e expected=$expected
 }
 
+ansible --version
+
 #############################################################################
 
 fixture_name=single_static_dir
