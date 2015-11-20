@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Print the specified host variable from the inventory
+# by running ansible-playbook
+# with the remaining command line arguments passed to ansible-playbook. 
+# (e.g. -i inventory -l hostname)
+# This calls pb_var.yml, so don't provide your own playbook. 
+
+
+# Expected ansible output resembles
+# >hostname | SUCCESS => {    "varname": "value",     "changed": false}
+# for each host
+
+varname=$1
+shift
+ansible-playbook "$@" -e varname=$varname pb_test_var.yml  \
+    | sed  -n -e /'"'$varname'":'/s/'^.*"'$varname'": "\([^"]\+\).*$/\1/p'

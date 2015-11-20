@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Print the value of the specified variable by calling the ad-hoc ansible
+# with the remaining arguments. 
+# This script calls the debug module, so don't specify a module on the command line.
+# 
+# Expected ansible output resembles
+# >hostname | SUCCESS => {    "varname": "value",     "changed": false}
+# for each host
+
+varname=$1
+shift
+ansible "$@" -o  -m debug -a var=$varname  \
+    | sed  -e 's/^.*"'$varname'": "\([^"]\+\).*$/\1/'
+

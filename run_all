@@ -1,0 +1,183 @@
+#!/bin/sh
+
+PATH=./:$PATH
+export PATH
+
+
+INVENTORIES_ROOT=./inventories
+
+check_var()
+{
+  inventory=$1
+  hostname=$2
+  varname=$3
+  expected=$4
+
+  echo "CHECK: $hostname $varname"
+
+  if [ -d $inventory ]
+  then
+      inventories="$inventory/*"
+  else
+      inventories=$inventory
+  fi
+
+  for inventory_iter in $inventories
+  do
+      echo "::::::::::::::"
+      echo "  $inventory_iter"
+      echo "::::::::::::::"
+      cat $inventory_iter
+  done
+
+  echo ""
+  echo "== ADHOC =="
+
+  echo "check for variable $varname"
+  ansible  $hostname -i $inventory -m debug  -a var=$varname 
+
+  echo "check for hostvars['$hostname'].$varname:"
+  ansible  $hostname -i $inventory -m debug  -a var=hostvars["'"$hostname"'"].$varname 
+
+  echo "check that var == hostvars[host].var"
+  ansible  $hostname -i $inventory -m assert -a that=${varname}==hostvars["'"$hostname"'"].${varname}
+
+  echo "check that var == expected: ${expected}"
+  ansible  $hostname -i $inventory -m assert -a that=${varname}=="'"${expected}"'"
+
+  echo "" 
+  echo "== PLAYBOOK =="
+  ansible-playbook -l $hostname -i $inventory \
+      pb_test_var.yml -e varname=$varname -e expected=$expected
+}
+
+#############################################################################
+
+fixture_name=single_static_dir
+inventory=$INVENTORIES_ROOT/$fixture_name
+mkdir -p $inventory
+
+cat <<EOF >$inventory/1_static_one
+[group_a]
+host_m var_x="static_one_amx"
+EOF
+
+echo "####################################################################"
+echo "# TEST host variable is set from a single static inventory"
+echo "#"
+check_var $inventory host_m var_x static_one_amx
+
+#############################################################################
+
+
+fixture_name=double_static_dir
+inventory=$INVENTORIES_ROOT/$fixture_name
+mkdir -p $inventory
+
+cat <<EOF >$inventory/1_static_one
+[group_a]
+host_m var_x="static_one_amx"
+EOF
+
+cat <<EOF >$inventory/2_static_two
+[group_a]
+host_m var_y="static_two_amy"
+EOF
+
+echo "####################################################################"
+echo "# TEST host variables are merged between multiple static inventories"  
+echo "# Apparently merging happened in 1.9.4, but not in 2.0b3" 
+check_var $inventory  host_m var_x static_one_amx
+check_var $inventory  host_m var_y static_two_amy
+
+#############################################################################
+
+fixture_name=double_static_collision_dir
+inventory=$INVENTORIES_ROOT/$fixture_name
+mkdir -p $inventory
+
+cat <<EOF >$inventory/1_static_one
+[group_a]
+host_m var_x="static_one_amx"
+host_n var_x="static_one_anx"
+EOF
+
+cat <<EOF >$inventory/2_static_two
+[group_a]
+host_m var_x="static_two_amx"
+
+[group_b]
+# host_n is here to demonstrate that the inventory host used for vars
+# depends not on the order of inventory files, but on the order of groups
+# a host is in.
+host_n
+EOF
+
+echo "####################################################################"
+echo "# TEST colliding host variables are set from the first lexically sorted inventory file processed - static inventories only -- but really the host variables come from the inventory that defined the 'lexically last' group a host is in. In this case, adding group_b with host_n as a member changes the variables from host_n." 
+echo "#" 
+check_var $inventory host_m var_x static_one_amx
+check_var $inventory host_n var_x static_one_anx
+
+#############################################################################
+fixture_name=single_dynamic_dir
+inventory=$INVENTORIES_ROOT/$fixture_name
+mkdir -p $inventory
+
+cat <<EOF >$inventory/1_dynamic_one
+#!/usr/bin/env dynamic_json
+{
+ "_meta": {
+  "hostvars": {
+   "host_m": {
+    "var_x": "dynamic_one_mx"
+   }
+  }
+ },
+ "group_b": [ "host_m" ]
+}
+EOF
+chmod u+x $inventory/1_dynamic_one
+
+echo "####################################################################"
+echo "# TEST Single dynamic inventory"
+echo "#" 
+check_var $inventory host_m var_x dynamic_one_mx
+
+
+#############################################################################
+fixture_name=dynamic_static_dir_collision_dir
+inventory=$INVENTORIES_ROOT/$fixture_name
+mkdir -p $inventory
+
+cat <<EOF >$inventory/1_dynamic_one
+#!/usr/bin/env dynamic_json
+{
+ "_meta": {
+  "hostvars": {
+   "host_m": {
+    "var_x": "dynamic_one_mx"
+   }
+  }
+ },
+ "group_0": [ "host_m" ]
+}
+EOF
+chmod u+x $inventory/1_dynamic_one
+
+
+cat <<EOF >$inventory/2_static_one
+[group_a]
+host_m
+EOF
+
+echo "####################################################################"
+echo "# TEST You can't group dynamic hosts into static groups without losing their variables."
+echo "# The mention of host_m in the static file is treated as a new host definition"
+echo "# whose empty variable set takes precedence over the dynamic inventory for adhoc."
+echo "# But also note that the hostvars[varname] does get set based on the dynamic inventory."
+echo "# ansible-playbook works but adhoc does not."
+echo "#" 
+check_var $inventory host_m var_x dynamic_one_mx
+
+

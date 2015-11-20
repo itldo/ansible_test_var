@@ -1,0 +1,33 @@
+---
+
+- name: Dump and compare a host variable's value with that in hostvars and what is expected
+  # (e.g. identified with -e varname=whatever -e expected=whatever)
+  gather_facts: false
+  vars:
+    varname: 'ansible_ssh_host'
+  tasks:
+
+    - name: variable value
+      debug:
+        var: "{{ varname }}"
+
+    - name: hostvars variable value
+      debug:
+        var: "hostvars['{{ inventory_hostname }}'].{{ varname }}"
+
+    - name: expected value
+      debug:
+        var: expected
+      when: expected is defined
+
+    - name: expected value checked
+      assert:
+        that: "{{ varname }} == expected"
+      when: expected is defined
+
+    - name: hostvars value agrees with var
+      assert:
+        that: "{{ varname }} == hostvars['{{ inventory_hostname }}'].{{ varname }}"
+
+
+

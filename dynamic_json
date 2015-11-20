@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+# Simulate a dynamic inventory from a file containing 
+# the json representation of the inventory (with _meta.hostvars).
+
+# Use this as a shebang on an inventory represented as json 
+# to turn it into a simulated dynamic inventory.
+
+# Expects to read the entire inventory
+# but will produce a host-specific variables if asked.
+
+import json
+import optparse
+import sys
+
+def main(argv):
+
+    parser = optparse.OptionParser()
+    parser.add_option("", "--host", dest="host")
+    parser.add_option("", "--list", action="store_true", dest="is_list")
+    opts, args = parser.parse_args()
+
+    if len(args) != 1:
+        parser.error("Missing input json inventory file argument")
+
+    if not (opts.is_list or opts.host):
+        parser.error("--list or --host arguments required")
+
+    in_file_name = args[0]
+    with open(in_file_name) as in_file:
+        in_data = in_file.read()
+
+    if in_data.startswith("#!"):
+        in_data = in_data[in_data.find("\n"):]
+
+
+    inventory = json.loads(in_data)
+    if opts.host:
+        out_inventory = inventory['_meta']['hostvars'][opts.host]
+
+    if opts.is_list:
+        out_inventory = inventory
+
+    out_data = json.dumps(out_inventory, indent=1, sort_keys=True)
+    print(out_data)
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
