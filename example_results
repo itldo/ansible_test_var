@@ -1,6 +1,8 @@
-ansible 2.0.0 (tbutler cffab5c824) last updated 2015/11/13 06:33:16 (GMT +000)
-  lib/ansible/modules/core: (detached HEAD 6e37f1dcef) last updated 2015/11/16 17:01:14 (GMT +000)
-  lib/ansible/modules/extras: (detached HEAD e52e015791) last updated 2015/11/16 17:01:15 (GMT +000)
+ansible 2.1.0 (devel d5446f9804) last updated 2015/12/04 15:23:52 (GMT +000)
+  lib/ansible/modules/core: (detached HEAD cd9a7667aa) last updated 2015/12/04 15:24:03 (GMT +000)
+  lib/ansible/modules/extras: (detached HEAD 3c4f954f0f) last updated 2015/12/04 15:24:03 (GMT +000)
+  config file = /home/PRLSS/tbutler/.ansible.cfg
+  configured module search path = Default w/o overrides
 ####################################################################
 # TEST host variable is set from a single static inventory
 #
@@ -148,22 +150,22 @@ host_m var_y="static_two_amy"
 check for variable var_y
 host_m | SUCCESS => {
     "changed": false, 
-    "var_y": "VARIABLE IS NOT DEFINED!"
+    "var_y": "static_two_amy"
 }
 check for hostvars['host_m'].var_y:
-host_m | FAILED! => {
-    "failed": true, 
-    "msg": "ERROR! 'dict object' has no attribute 'var_y'"
+host_m | SUCCESS => {
+    "changed": false, 
+    "hostvars['host_m'].var_y": "static_two_amy"
 }
 check that var == hostvars[host].var
-host_m | FAILED! => {
-    "failed": true, 
-    "msg": "ERROR! The conditional check 'var_y==hostvars['host_m'].var_y' failed. The error was: ERROR! error while evaluating conditional: var_y==hostvars['host_m'].var_y ({% if var_y==hostvars['host_m'].var_y %} True {% else %} False {% endif %})"
+host_m | SUCCESS => {
+    "changed": false, 
+    "msg": "all assertions passed"
 }
 check that var == expected: static_two_amy
-host_m | FAILED! => {
-    "failed": true, 
-    "msg": "ERROR! The conditional check 'var_y=='static_two_amy'' failed. The error was: ERROR! error while evaluating conditional: var_y=='static_two_amy' ({% if var_y=='static_two_amy' %} True {% else %} False {% endif %})"
+host_m | SUCCESS => {
+    "changed": false, 
+    "msg": "all assertions passed"
 }
 
 == PLAYBOOK ==
@@ -173,14 +175,29 @@ PLAY [Dump and compare a host variable's value with that in hostvars and what is
 TASK [variable value] **********************************************************
 ok: [host_m] => {
     "changed": false, 
-    "var_y": "VARIABLE IS NOT DEFINED!"
+    "var_y": "static_two_amy"
 }
 
 TASK [hostvars variable value] *************************************************
-fatal: [host_m]: FAILED! => {"failed": true, "msg": "ERROR! 'dict object' has no attribute 'var_y'"}
+ok: [host_m] => {
+    "changed": false, 
+    "hostvars['host_m'].var_y": "static_two_amy"
+}
+
+TASK [expected value] **********************************************************
+ok: [host_m] => {
+    "changed": false, 
+    "expected": "static_two_amy"
+}
+
+TASK [expected value checked] **************************************************
+ok: [host_m]
+
+TASK [hostvars value agrees with var] ******************************************
+ok: [host_m]
 
 PLAY RECAP *********************************************************************
-host_m                     : ok=1    changed=0    unreachable=0    failed=1   
+host_m                     : ok=5    changed=0    unreachable=0    failed=0   
 
 ####################################################################
 # TEST colliding host variables are set from the first lexically sorted inventory file processed - static inventories only -- but really the host variables come from the inventory that defined the 'lexically last' group a host is in. In this case, adding group_b with host_n as a member changes the variables from host_n.
@@ -208,12 +225,12 @@ host_n
 check for variable var_x
 host_m | SUCCESS => {
     "changed": false, 
-    "var_x": "static_one_amx"
+    "var_x": "static_two_amx"
 }
 check for hostvars['host_m'].var_x:
 host_m | SUCCESS => {
     "changed": false, 
-    "hostvars['host_m'].var_x": "static_one_amx"
+    "hostvars['host_m'].var_x": "static_two_amx"
 }
 check that var == hostvars[host].var
 host_m | SUCCESS => {
@@ -221,9 +238,11 @@ host_m | SUCCESS => {
     "msg": "all assertions passed"
 }
 check that var == expected: static_one_amx
-host_m | SUCCESS => {
+host_m | FAILED! => {
+    "assertion": "var_x=='static_one_amx'", 
     "changed": false, 
-    "msg": "all assertions passed"
+    "evaluated_to": false, 
+    "failed": true
 }
 
 == PLAYBOOK ==
@@ -233,13 +252,13 @@ PLAY [Dump and compare a host variable's value with that in hostvars and what is
 TASK [variable value] **********************************************************
 ok: [host_m] => {
     "changed": false, 
-    "var_x": "static_one_amx"
+    "var_x": "static_two_amx"
 }
 
 TASK [hostvars variable value] *************************************************
 ok: [host_m] => {
     "changed": false, 
-    "hostvars['host_m'].var_x": "static_one_amx"
+    "hostvars['host_m'].var_x": "static_two_amx"
 }
 
 TASK [expected value] **********************************************************
@@ -249,13 +268,10 @@ ok: [host_m] => {
 }
 
 TASK [expected value checked] **************************************************
-ok: [host_m]
-
-TASK [hostvars value agrees with var] ******************************************
-ok: [host_m]
+fatal: [host_m]: FAILED! => {"assertion": "var_x == expected", "changed": false, "evaluated_to": false, "failed": true}
 
 PLAY RECAP *********************************************************************
-host_m                     : ok=5    changed=0    unreachable=0    failed=0   
+host_m                     : ok=3    changed=0    unreachable=0    failed=1   
 
 CHECK: host_n var_x
 ::::::::::::::
@@ -283,14 +299,14 @@ host_n | SUCCESS => {
     "var_x": "static_one_anx"
 }
 check for hostvars['host_n'].var_x:
-host_n | FAILED! => {
-    "failed": true, 
-    "msg": "ERROR! 'dict object' has no attribute 'var_x'"
+host_n | SUCCESS => {
+    "changed": false, 
+    "hostvars['host_n'].var_x": "static_one_anx"
 }
 check that var == hostvars[host].var
-host_n | FAILED! => {
-    "failed": true, 
-    "msg": "ERROR! The conditional check 'var_x==hostvars['host_n'].var_x' failed. The error was: ERROR! error while evaluating conditional: var_x==hostvars['host_n'].var_x ({% if var_x==hostvars['host_n'].var_x %} True {% else %} False {% endif %})"
+host_n | SUCCESS => {
+    "changed": false, 
+    "msg": "all assertions passed"
 }
 check that var == expected: static_one_anx
 host_n | SUCCESS => {
@@ -309,10 +325,22 @@ ok: [host_n] => {
 }
 
 TASK [hostvars variable value] *************************************************
-fatal: [host_n]: FAILED! => {"failed": true, "msg": "ERROR! 'dict object' has no attribute 'var_x'"}
+ok: [host_n] => {
+    "changed": false, 
+    "hostvars['host_n'].var_x": "static_one_anx"
+}
+
+TASK [expected value] **********************************************************
+ok: [host_n] => {
+    "changed": false, 
+    "expected": "static_one_anx"
+}
+
+TASK [expected value checked] **************************************************
+fatal: [host_n]: FAILED! => {"failed": true, "msg": "ERROR! The conditional check 'var_x == expected' failed. The error was: ERROR! error while evaluating conditional: var_x == expected ({% if var_x == expected %} True {% else %} False {% endif %})"}
 
 PLAY RECAP *********************************************************************
-host_n                     : ok=1    changed=0    unreachable=0    failed=1   
+host_n                     : ok=3    changed=0    unreachable=0    failed=1   
 
 ####################################################################
 # TEST Single dynamic inventory
@@ -421,9 +449,9 @@ host_m | SUCCESS => {
     "var_x": "VARIABLE IS NOT DEFINED!"
 }
 check for hostvars['host_m'].var_x:
-host_m | SUCCESS => {
-    "changed": false, 
-    "hostvars['host_m'].var_x": "dynamic_one_mx"
+host_m | FAILED! => {
+    "failed": true, 
+    "msg": "ERROR! 'dict object' has no attribute 'var_x'"
 }
 check that var == hostvars[host].var
 host_m | FAILED! => {
@@ -447,23 +475,8 @@ ok: [host_m] => {
 }
 
 TASK [hostvars variable value] *************************************************
-ok: [host_m] => {
-    "changed": false, 
-    "hostvars['host_m'].var_x": "dynamic_one_mx"
-}
-
-TASK [expected value] **********************************************************
-ok: [host_m] => {
-    "changed": false, 
-    "expected": "dynamic_one_mx"
-}
-
-TASK [expected value checked] **************************************************
-ok: [host_m]
-
-TASK [hostvars value agrees with var] ******************************************
-ok: [host_m]
+fatal: [host_m]: FAILED! => {"failed": true, "msg": "ERROR! 'dict object' has no attribute 'var_x'"}
 
 PLAY RECAP *********************************************************************
-host_m                     : ok=5    changed=0    unreachable=0    failed=0   
+host_m                     : ok=1    changed=0    unreachable=0    failed=1   
 
